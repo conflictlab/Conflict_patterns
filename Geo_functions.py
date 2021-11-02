@@ -205,12 +205,12 @@ def extract_TS_from_crop_country(shape_country,n_country,ind_all,
     
     df_clim_tot=[]
     for variable in ['Temp','RR','Hum']:
-        bar = progressbar.ProgressBar(maxval=len(df_c.Cell_ID.unique()[0:2]), \
+        bar = progressbar.ProgressBar(maxval=len(df_c.Cell_ID.unique()), \
             widgets=[progressbar.Bar('=', '[', ']'), ' ', progressbar.Percentage()])
         bar.start()
         cont=0
         df_clim=[]
-        for elmt in df_c.Cell_ID.unique()[0:2]: 
+        for elmt in df_c.Cell_ID.unique(): 
             df_tot=[]
             for filename in os.listdir(fold_v+variable+'/'):
                 test=zonal_stats(shape_fold+str(elmt)+'.shp', fold_v+variable+'/'+filename,
@@ -229,7 +229,7 @@ def extract_TS_from_crop_country(shape_country,n_country,ind_all,
         print(variable, ' done.')
         df_clim_2=pd.DataFrame(np.array(df_clim).T)
         df_clim_2.index=ind_all
-        df_clim_2.columns=df_c.Cell_ID.unique()[0:2]
+        df_clim_2.columns=df_c.Cell_ID.unique()
         bar.finish() 
         df_clim_tot.append(df_clim_2)    
     
@@ -244,7 +244,7 @@ def extract_TS_from_crop_country(shape_country,n_country,ind_all,
     ############ Application of the crop weight on the Climatic TS
     
     weight=pd.DataFrame()    
-    for elmt in df_c.Cell_ID.unique()[0:2]:    
+    for elmt in df_c.Cell_ID.unique():    
         df_c_u=df_c[df_c.Cell_ID==elmt]
         l_m=[]
         for months in range(1,13):
