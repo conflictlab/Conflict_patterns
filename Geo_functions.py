@@ -4,7 +4,7 @@ Created on Sun Sep 26 12:35:21 2021
 
 @author: thoma
 """
-from osgeo import gdal,osr
+import gdal
 import rasterio as r
 from rasterio.mask import mask
 import os
@@ -15,8 +15,9 @@ from shapely.geometry import Point, shape
 import geopandas as gpd
 from rasterstats import zonal_stats
 import netCDF4
+import osr
 from statsmodels.tsa.seasonal import seasonal_decompose
-import ogr
+from osgeo import ogr
 import progressbar
 from time import sleep
 
@@ -109,7 +110,7 @@ def extract_geo_from_nc4(nc4,layer,ind_all,folder):
         xres = (xmax - xmin) / float(nx)
         yres = (ymax - ymin) / float(ny)
         geotransform = (xmin, xres, 0, ymax, 0, -yres)
-        dst_ds = gdal.GetDriverByName('GTiff').Create(folder+str(ind_all[i])[0:10]+'.tif', nx, ny, 1, gdal.GDT_Float32)
+        dst_ds = gdal.GetDriverByName('GTiff').Create(folder+str(ind_all[i][0])+'.tif', nx, ny, 1, gdal.GDT_Float32)
         dst_ds.SetGeoTransform(geotransform)        # specify coords
         srs = osr.SpatialReference()                # establish encoding
         srs.ImportFromEPSG(4326)                    # WGS84 lat/long
@@ -117,6 +118,8 @@ def extract_geo_from_nc4(nc4,layer,ind_all,folder):
         dst_ds.GetRasterBand(1).WriteArray(dataw)   # write r-band to the raster
         dst_ds.FlushCache()                         # write to disk
         dst_ds = None  
+
+
 
 ####################### Extract TS from folder of geotiff ############################################
 # Function to extract global country time series of precipitation, temperature and humidity from     #
@@ -134,12 +137,13 @@ def extract_geo_from_nc4(nc4,layer,ind_all,folder):
 ######################################################################################################
 
 def extract_TS_from_crop_country(shape_country,n_country,ind_all,
-                                 fold_ext='D:/Pace_data/shapes_ext/',
-                                 df_cr='C:/Users/thoma/Desktop/CELL_SPECIFIC_CROPPING_CALENDARS.txt',
-                                 fold_v='D:/Pace_data/Images/Total/',
-                                 fold_output='C:/Users/thoma/Desktop/PhD/Pace/Python/Classif/'):
-    
-    ####### Name of the country file creation 
+                                 fold_ext='/media/thomas/OS/Users/ThomasSchinca/Pace_data/shape_ext/',
+                                 df_cr='/media/thomas/OS/Users/ThomasSchinca/Pace_data/CELL_SPECIFIC_CROPPING_CALENDARS.txt',
+                                 fold_v='/media/thomas/OS/Users/ThomasSchinca/Pace_data/Images/Total/',
+                                 fold_output='/media/thomas/OS/Users/ThomasSchinca/Pace_data/Classif/',
+                                 fold_data = '/media/thomas/OS/Users/ThomasSchinca/Pace_data/Data/'):
+                                
+####### Name of the country file creation 
     
     n_country_link=n_country.replace(" ", "_")    
     
@@ -201,12 +205,12 @@ def extract_TS_from_crop_country(shape_country,n_country,ind_all,
     
     df_clim_tot=[]
     for variable in ['Temp','RR','Hum']:
-        bar = progressbar.ProgressBar(maxval=len(df_c.Cell_ID.unique()), \
+        bar = progressbar.ProgressBar(maxval=len(df_c.Cell_ID.unique()[0:2]), \
             widgets=[progressbar.Bar('=', '[', ']'), ' ', progressbar.Percentage()])
         bar.start()
         cont=0
         df_clim=[]
-        for elmt in df_c.Cell_ID.unique(): 
+        for elmt in df_c.Cell_ID.unique()[0:2]: 
             df_tot=[]
             for filename in os.listdir(fold_v+variable+'/'):
                 test=zonal_stats(shape_fold+str(elmt)+'.shp', fold_v+variable+'/'+filename,
@@ -225,7 +229,7 @@ def extract_TS_from_crop_country(shape_country,n_country,ind_all,
         print(variable, ' done.')
         df_clim_2=pd.DataFrame(np.array(df_clim).T)
         df_clim_2.index=ind_all
-        df_clim_2.columns=df_c.Cell_ID.unique()
+        df_clim_2.columns=df_c.Cell_ID.unique()[0:2]
         bar.finish() 
         df_clim_tot.append(df_clim_2)    
     
@@ -240,7 +244,7 @@ def extract_TS_from_crop_country(shape_country,n_country,ind_all,
     ############ Application of the crop weight on the Climatic TS
     
     weight=pd.DataFrame()    
-    for elmt in df_c.Cell_ID.unique():    
+    for elmt in df_c.Cell_ID.unique()[0:2]:    
         df_c_u=df_c[df_c.Cell_ID==elmt]
         l_m=[]
         for months in range(1,13):
@@ -272,10 +276,13 @@ def extract_TS_from_crop_country(shape_country,n_country,ind_all,
         	value = n_ts_clim_final[n_series][i] - result_add.seasonal[i]
         	diff.append(value)
         f_df_clim[n_series]=diff 
-    f_df_clim.index=df_clim.index 
+    f_df_clim.index=df_clim_2.index 
 
-    ################ Create the output csv        
+    ################ Create the output csv    
+
+    os.mkdir(fold_data+n_country+'/')    
     f_df_clim.to_csv(fold_output+n_country+'.csv')
-
+    n_ts_clim_final.to_csv(fold_data+n_country+'/Norm.csv')
+    ts_clim_final.to_csv(fold_data+n_country+'/Raw.csv')
     return (ts_clim_final,n_ts_clim_final,f_df_clim)
 
